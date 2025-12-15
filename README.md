@@ -51,3 +51,23 @@ This program applies convolution kernels to PPM (color) or PGM (grayscale) image
     - `out_ch`: Output channel,
     - `in_ch`: Input channel,
     - `(ky, kx)`: Position within the kernel.
+
+## Testing
+
+The program can be tested for correctness and speedups by running:
+
+```
+./test.sh <program.cu>
+```
+
+The script runs program.cu and compares its output with the expected output, passing the test if the two match. The speedup tests pass as long as the program is at least 5% faster than the baseline serial program. Each test folder contains `in.ppm` (image), `in.txt` (kernel), and `out.ppm` (expected output).
+
+Tests:
+- 0: Blur
+- 1: Edge Detect Per Channel
+- 2: Gaussian Blur
+- 3: Grayscale
+- 4: Sepia
+- 5: Yuv
+- 6–14: Generated correctness tests
+- 15–24: Generated speedup tests
