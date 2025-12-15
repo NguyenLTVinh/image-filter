@@ -1,3 +1,4 @@
 *.o
 goldy-blur-output.ppm
 filter
+build/
