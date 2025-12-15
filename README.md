@@ -68,6 +68,6 @@ Tests:
 - 2: Gaussian Blur
 - 3: Grayscale
 - 4: Sepia
-- 5: Yuv
+- 5: YUV
 - 6–14: Generated correctness tests
 - 15–24: Generated speedup tests
