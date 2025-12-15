@@ -1,7 +1,7 @@
 .PHONY: all run
 
 all:
-	nvcc -o filter filter.cu
+	nvcc -o filter-parallel filter-parallel.cu
 
 run: all
-	./filter images/goldy.ppm kernels/blur.txt goldy-blur-output.ppm
+	./filter-parallel images/goldy.ppm kernels/gaussian-blur-15.txt goldy-kernel-output.ppm
