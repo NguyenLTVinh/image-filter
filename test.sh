@@ -18,7 +18,7 @@ mkdir -p "$BUILD_DIR"
 
 echo "🔧 Compiling baseline ${BASE_SRC} ..."
 set +e
-nvcc -O3 -arch=sm_75 "$BASE_SRC" -o "$BASE_BIN"
+nvcc -O3 -arch=sm_75 "$BASE_SRC" utilities.c -o "$BASE_BIN"
 base_compile_exit=$?
 set -e
 
@@ -30,7 +30,7 @@ echo "✅ Baseline compiled."
 
 echo "🔧 Compiling target ${TARGET_SRC} ..."
 set +e
-nvcc -O3 -arch=sm_75 "$TARGET_SRC" -o "$TARGET_BIN"
+nvcc -O3 -arch=sm_75 "$TARGET_SRC" utilities.c -o "$TARGET_BIN"
 target_compile_exit=$?
 set -e
 if [ $target_compile_exit -ne 0 ] || [ ! -f "$TARGET_BIN" ]; then
