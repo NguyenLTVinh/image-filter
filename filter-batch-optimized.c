@@ -51,9 +51,7 @@ Image *apply_convolution(Image *img, Kernel *kernel, double *time_taken) {
 
   double start = omp_get_wtime();
 
-  // For each output channel
   for (int oc = 0; oc < kernel->output_channels; oc++) {
-    // For each output pixel
     for (int y = 0; y < img->height; y++) {
       for (int x = 0; x < img->width; x++) {
         float sum = 0.0;
@@ -122,7 +120,7 @@ int main(int argc, char *argv[]) {
 
   // Check if input is a directory or single file
   if (is_directory(input_path)) {
-    // Directory mode: batch processing
+    // Directory mode: parallel batch processing
     if (!create_directory(output_path)) {
       return 1;
     }
@@ -135,6 +133,7 @@ int main(int argc, char *argv[]) {
     }
 
     printf("Found %d image(s) to process\n", num_images);
+    printf("Using %d OpenMP threads\n", omp_get_max_threads());
 
     KernelSet *kset = read_kernels(argv[2]);
     if (!kset) {
@@ -152,21 +151,33 @@ int main(int argc, char *argv[]) {
       if (batch_end > num_images)
         batch_end = num_images;
 
+      int batch_size = batch_end - batch_start;
       printf("\nBatch %d-%d:\n", batch_start + 1, batch_end);
 
+      double batch_start_time = omp_get_wtime();
+
+      // Process images in parallel within the batch
+      #pragma omp parallel for schedule(dynamic, 1) reduction(+:processed)
       for (int i = batch_start; i < batch_end; i++) {
         char *filename = get_filename(image_files[i]);
-        printf("  [%d/%d] %s... ", i + 1, num_images, filename);
-        fflush(stdout);
+        
+        #pragma omp critical
+        {
+          printf("  [%d/%d] %s... ", i + 1, num_images, filename);
+          fflush(stdout);
+        }
 
         Image *img = read_image(image_files[i]);
         if (!img) {
+          #pragma omp critical
           printf("FAILED (read)\n");
           free(filename);
           continue;
         }
 
         Image *current = img;
+        int success = 1;
+
         for (int k = 0; k < kset->num_kernels; k++) {
           double kernel_time = 0.0;
           Image *result =
@@ -176,12 +187,11 @@ int main(int argc, char *argv[]) {
             if (current != img)
               free_image(current);
             free_image(img);
+            #pragma omp critical
             printf("FAILED (kernel %d)\n", k + 1);
-            free(filename);
-            goto next_image;
+            success = 0;
+            break;
           }
-
-          total_time += kernel_time;
 
           if (current != img) {
             free_image(current);
@@ -189,28 +199,37 @@ int main(int argc, char *argv[]) {
           current = result;
         }
 
-        char *output_file = join_path(output_path, filename);
-        if (write_image(output_file, current)) {
-          printf("OK\n");
-          processed++;
-        } else {
-          printf("FAILED (write)\n");
+        if (success) {
+          char *output_file = join_path(output_path, filename);
+          if (write_image(output_file, current)) {
+            #pragma omp critical
+            printf("OK\n");
+            processed++;
+          } else {
+            #pragma omp critical
+            printf("FAILED (write)\n");
+          }
+          free(output_file);
         }
 
         free_image(img);
         if (current != img)
           free_image(current);
-        free(output_file);
         free(filename);
-
-      next_image:
-        continue;
       }
+
+      double batch_end_time = omp_get_wtime();
+      double batch_time = batch_end_time - batch_start_time;
+      total_time += batch_time;
+
+      printf("Batch time: %.6f seconds (%.2f images/sec)\n", 
+             batch_time, batch_size / batch_time);
     }
 
     printf("\n=== Summary ===\n");
     printf("Processed: %d/%d images\n", processed, num_images);
     printf("Total computation time: %.6f seconds\n", total_time);
+    printf("Average throughput: %.2f images/sec\n", processed / total_time);
 
     free_kernel_set(kset);
     free_string_array(image_files, num_images);
@@ -231,6 +250,7 @@ int main(int argc, char *argv[]) {
 
     printf("Processing image: %dx%dx%d with %d kernel(s)\n", img->width,
            img->height, img->channels, kset->num_kernels);
+    printf("Using %d OpenMP threads\n", omp_get_max_threads());
 
     Image *current = img;
     double total_time = 0.0;
