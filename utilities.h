@@ -30,3 +30,12 @@ int write_image(const char *filename, Image *img);
 void free_image(Image *img);
 KernelSet *read_kernels(const char *filename);
 void free_kernel_set(KernelSet *kset);
+
+// Directory utilities
+char **get_image_files(const char *directory, int *count);
+void free_string_array(char **array, int count);
+int create_directory(const char *path);
+int is_image_file(const char *filename);
+char *get_filename(const char *path);
+char *join_path(const char *dir, const char *filename);
+int is_directory(const char *path);

@@ -1,5 +1,11 @@
+#define _DEFAULT_SOURCE
+#define _POSIX_C_SOURCE 200809L
 #include "utilities.h"
 #include <string.h>
+#include <dirent.h>
+#include <sys/stat.h>
+#include <sys/types.h>
+#include <libgen.h>
 
 void skip_comments(FILE *fp)
 {
@@ -374,4 +380,128 @@ void free_kernel_set(KernelSet *kset)
         }
         free(kset);
     }
+}
+
+int is_image_file(const char *filename)
+{
+    const char *dot = strrchr(filename, '.');
+    if (!dot)
+        return 0;
+    return (strcmp(dot, ".ppm") == 0 || strcmp(dot, ".pgm") == 0);
+}
+
+char **get_image_files(const char *directory, int *count)
+{
+    DIR *dir = opendir(directory);
+    if (!dir)
+    {
+        fprintf(stderr, "Error: Cannot open directory %s\n", directory);
+        *count = 0;
+        return NULL;
+    }
+
+    // First pass: count image files
+    *count = 0;
+    struct dirent *entry;
+    while ((entry = readdir(dir)) != NULL)
+    {
+        if (entry->d_type == DT_REG && is_image_file(entry->d_name))
+        {
+            (*count)++;
+        }
+    }
+
+    if (*count == 0)
+    {
+        closedir(dir);
+        return NULL;
+    }
+
+    // Allocate array for filenames
+    char **files = (char **)malloc(*count * sizeof(char *));
+    if (!files)
+    {
+        closedir(dir);
+        *count = 0;
+        return NULL;
+    }
+
+    // Second pass: store filenames
+    rewinddir(dir);
+    int idx = 0;
+    while ((entry = readdir(dir)) != NULL && idx < *count)
+    {
+        if (entry->d_type == DT_REG && is_image_file(entry->d_name))
+        {
+            size_t len = strlen(directory) + strlen(entry->d_name) + 2;
+            files[idx] = (char *)malloc(len);
+            if (!files[idx])
+            {
+                free_string_array(files, idx);
+                closedir(dir);
+                *count = 0;
+                return NULL;
+            }
+            snprintf(files[idx], len, "%s/%s", directory, entry->d_name);
+            idx++;
+        }
+    }
+
+    closedir(dir);
+    return files;
+}
+
+void free_string_array(char **array, int count)
+{
+    if (array)
+    {
+        for (int i = 0; i < count; i++)
+        {
+            free(array[i]);
+        }
+        free(array);
+    }
+}
+
+int create_directory(const char *path)
+{
+    struct stat st = {0};
+    if (stat(path, &st) == -1)
+    {
+        if (mkdir(path, 0755) != 0)
+        {
+            fprintf(stderr, "Error: Cannot create directory %s\n", path);
+            return 0;
+        }
+    }
+    return 1;
+}
+
+char *get_filename(const char *path)
+{
+    const char *filename = strrchr(path, '/');
+    if (filename)
+        return strdup(filename + 1);
+    return strdup(path);
+}
+
+char *join_path(const char *dir, const char *filename)
+{
+    size_t len = strlen(dir) + strlen(filename) + 2;
+    char *path = (char *)malloc(len);
+    if (path)
+    {
+        snprintf(path, len, "%s/%s", dir, filename);
+    }
+    return path;
+}
+
+int is_directory(const char *path)
+{
+    struct stat st;
+    if (stat(path, &st) == 0)
+    {
+        return S_ISDIR(st.st_mode);
+    }
+    return 0;
 }

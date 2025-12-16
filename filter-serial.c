@@ -1,8 +1,8 @@
+#include "utilities.h"
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
 #include <time.h>
-#include "utilities.h"
 
 Image *apply_convolution(Image *img, Kernel *kernel, double *time_taken) {
   if (img->channels != kernel->input_channels) {
@@ -98,9 +98,11 @@ Image *apply_convolution(Image *img, Kernel *kernel, double *time_taken) {
 
 int main(int argc, char *argv[]) {
   if (argc != 4) {
-    printf("Usage: %s <input.ppm|input.pgm> <kernel.txt> "
-           "<output.ppm|output.pgm>\n",
-           argv[0]);
+    printf("Usage: %s <input> <kernel.txt> <output>\n", argv[0]);
+    printf(
+        "\n  input:  Single image file (.ppm/.pgm) OR directory of images\n");
+    printf("  output: Single output file OR output directory\n");
+    printf("\nFor directory mode: processes images in batches of 256\n");
     printf("\nSupported formats:\n");
     printf("  Input: P3 (PPM color) or P2 (PGM grayscale)\n");
     printf("  Output: Determined by number of output channels\n");
@@ -114,61 +116,165 @@ int main(int argc, char *argv[]) {
     return 1;
   }
 
-  Image *img = read_image(argv[1]);
-  if (!img) {
-    return 1;
-  }
+  const char *input_path = argv[1];
+  const char *output_path = argv[3];
 
-  KernelSet *kset = read_kernels(argv[2]);
-  if (!kset) {
-    free_image(img);
-    return 1;
-  }
-
-  printf("Processing image: %dx%dx%d with %d kernel(s)\n", img->width,
-         img->height, img->channels, kset->num_kernels);
-
-  Image *current = img;
-  double total_time = 0.0;
-
-  for (int k = 0; k < kset->num_kernels; k++) {
-    printf("Applying kernel %d/%d (%dx%d, %d->%d channels)...\n", k + 1,
-           kset->num_kernels, kset->kernels[k]->height, kset->kernels[k]->width,
-           kset->kernels[k]->input_channels, kset->kernels[k]->output_channels);
-
-    double kernel_time = 0.0;
-    Image *result = apply_convolution(current, kset->kernels[k], &kernel_time);
-
-    if (!result) {
-      fprintf(stderr, "Error: Convolution failed on kernel %d\n", k + 1);
-      if (current != img)
-        free_image(current);
-      free_image(img);
-      free_kernel_set(kset);
+  // Check if input is a directory or single file
+  if (is_directory(input_path)) {
+    // Directory mode: batch processing
+    if (!create_directory(output_path)) {
       return 1;
     }
 
-    printf("  Computation time: %.6f seconds\n", kernel_time);
-    total_time += kernel_time;
-
-    if (current != img) {
-      free_image(current);
+    int num_images = 0;
+    char **image_files = get_image_files(input_path, &num_images);
+    if (!image_files || num_images == 0) {
+      fprintf(stderr, "Error: No image files found in %s\n", input_path);
+      return 1;
     }
-    current = result;
+
+    printf("Found %d image(s) to process\n", num_images);
+
+    KernelSet *kset = read_kernels(argv[2]);
+    if (!kset) {
+      free_string_array(image_files, num_images);
+      return 1;
+    }
+
+    const int BATCH_SIZE = 256;
+    double total_time = 0.0;
+    int processed = 0;
+
+    for (int batch_start = 0; batch_start < num_images;
+         batch_start += BATCH_SIZE) {
+      int batch_end = batch_start + BATCH_SIZE;
+      if (batch_end > num_images)
+        batch_end = num_images;
+
+      printf("\nBatch %d-%d:\n", batch_start + 1, batch_end);
+
+      for (int i = batch_start; i < batch_end; i++) {
+        char *filename = get_filename(image_files[i]);
+        printf("  [%d/%d] %s... ", i + 1, num_images, filename);
+        fflush(stdout);
+
+        Image *img = read_image(image_files[i]);
+        if (!img) {
+          printf("FAILED (read)\n");
+          free(filename);
+          continue;
+        }
+
+        Image *current = img;
+        for (int k = 0; k < kset->num_kernels; k++) {
+          double kernel_time = 0.0;
+          Image *result =
+              apply_convolution(current, kset->kernels[k], &kernel_time);
+
+          if (!result) {
+            if (current != img)
+              free_image(current);
+            free_image(img);
+            printf("FAILED (kernel %d)\n", k + 1);
+            free(filename);
+            goto next_image;
+          }
+
+          total_time += kernel_time;
+
+          if (current != img) {
+            free_image(current);
+          }
+          current = result;
+        }
+
+        char *output_file = join_path(output_path, filename);
+        if (write_image(output_file, current)) {
+          printf("OK\n");
+          processed++;
+        } else {
+          printf("FAILED (write)\n");
+        }
+
+        free_image(img);
+        if (current != img)
+          free_image(current);
+        free(output_file);
+        free(filename);
+
+      next_image:
+        continue;
+      }
+    }
+
+    printf("\n=== Summary ===\n");
+    printf("Processed: %d/%d images\n", processed, num_images);
+    printf("Total computation time: %.6f seconds\n", total_time);
+
+    free_kernel_set(kset);
+    free_string_array(image_files, num_images);
+
+    return processed < num_images ? 1 : 0;
+  } else {
+    // Single image mode: original behavior
+    Image *img = read_image(input_path);
+    if (!img) {
+      return 1;
+    }
+
+    KernelSet *kset = read_kernels(argv[2]);
+    if (!kset) {
+      free_image(img);
+      return 1;
+    }
+
+    printf("Processing image: %dx%dx%d with %d kernel(s)\n", img->width,
+           img->height, img->channels, kset->num_kernels);
+
+    Image *current = img;
+    double total_time = 0.0;
+
+    for (int k = 0; k < kset->num_kernels; k++) {
+      printf("Applying kernel %d/%d (%dx%d, %d->%d channels)...\n", k + 1,
+             kset->num_kernels, kset->kernels[k]->height,
+             kset->kernels[k]->width, kset->kernels[k]->input_channels,
+             kset->kernels[k]->output_channels);
+
+      double kernel_time = 0.0;
+      Image *result =
+          apply_convolution(current, kset->kernels[k], &kernel_time);
+
+      if (!result) {
+        fprintf(stderr, "Error: Convolution failed on kernel %d\n", k + 1);
+        if (current != img)
+          free_image(current);
+        free_image(img);
+        free_kernel_set(kset);
+        return 1;
+      }
+
+      printf("  Computation time: %.6f seconds\n", kernel_time);
+      total_time += kernel_time;
+
+      if (current != img) {
+        free_image(current);
+      }
+      current = result;
+    }
+
+    printf("\nTotal computation time: %.6f seconds\n", total_time);
+    printf("Output: %dx%dx%d\n", current->width, current->height,
+           current->channels);
+
+    if (write_image(output_path, current)) {
+      printf("Output written to %s\n", output_path);
+    }
+
+    free_image(img);
+    if (current != img)
+      free_image(current);
+    free_kernel_set(kset);
+
+    return 0;
   }
-
-  printf("\nTotal computation time: %.6f seconds\n", total_time);
-  printf("Output: %dx%dx%d\n", current->width, current->height,
-         current->channels);
-
-  if (write_image(argv[3], current)) {
-    printf("Output written to %s\n", argv[3]);
-  }
-
-  free_image(img);
-  if (current != img)
-    free_image(current);
-  free_kernel_set(kset);
-
-  return 0;
 }
