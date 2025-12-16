@@ -2,3 +2,4 @@
 goldy-blur-output.ppm
 filter
 build/
+test_batches/indir/*.ppm
