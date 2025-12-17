@@ -1,8 +1,27 @@
-This program applies convolution kernels to PPM (color) or PGM (grayscale) images.
+This program applies convolution kernels to PPM (color) or PGM (grayscale) images. It supports both single image processing and batch processing of image directories.
 
-```
+## Usage
+
+### Single Image Mode
+```bash
 ./filter-serial <input.ppm|input.pgm> <kernel.txt> <output.ppm|output.pgm>
 ```
+
+### Batch Processing Mode
+```bash
+./filter-serial <input_directory> <kernel.txt> <output_directory>
+```
+
+## Processing Modes
+
+### Single Image Mode
+Processes a single image file and outputs the result to the specified file path.
+
+### Batch Processing Mode
+- Processes all images in the input directory
+- Creates the output directory if it doesn't exist
+- Processes images in batches of 256
+- Outputs processed images to the output directory with the same filenames
 
 ## Inputs
 
@@ -10,6 +29,21 @@ This program applies convolution kernels to PPM (color) or PGM (grayscale) image
 - **PPM (P3)**: Color image (RGB, 3 channels).
 - **PGM (P2)**: Grayscale image (1 channel).
 - **Header**: Format identifier (`P3` or `P2`), followed by width, height, and max pixel value.
+
+
+## Output
+
+### Single Image Mode
+- Displays kernel application progress
+- Reports total computation time
+- Writes output to the specified file
+
+### Batch Processing Mode
+- Displays progress for each image in the batch
+- Reports:
+  - Number of successfully processed images
+  - Total computation time across all images
+- Writes all processed images to the output directory
 
 ---
 
@@ -53,6 +87,7 @@ This program applies convolution kernels to PPM (color) or PGM (grayscale) image
     - `(ky, kx)`: Position within the kernel.
 
 ## Testing
+### Single Image Tests
 
 The program can be tested for correctness and speedups by running:
 
@@ -71,3 +106,23 @@ Tests:
 - 5: YUV
 - 6–14: Generated correctness tests
 - 15–24: Generated speedup tests
+
+### Batch Processing Tests
+First, download the zip file containing 1024 images from this url: https://drive.google.com/file/d/1HMFmKEI8oNnb4LfB3mkJcJljBHn9Ho21/view
+Unzip the zip file containing 1024 200x200 generated images to test_batches/indir/
+Then, run test_batch.sh with the target program as argument.
+```
+unzip 1024images.zip -d test_batches/indir/
+./test_batch.sh <program.c>
+```
+
+Tests:
+- 0:  Grayscale kernel (1×1×3×1)
+- 1:  RGB Channel swap kernel (1×1×3×3)
+- 2:  RGB to YUV kernel (1×1×3×3)
+- 3:  Laplacian edge detect kernel (3×3×3×1)
+- 4:  Blur kermel (3×3×3×3)
+- 5:  Gaussian blur kernel (3×3×3×3)
+- 6:  Large Gaussian blur kernel (15×15×3×3)
+
+The test script checks for correctness and display speedup. The kernels are ordered based on size and complexity.

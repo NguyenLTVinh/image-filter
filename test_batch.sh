@@ -1,21 +1,33 @@
 #!/bin/bash
 set -e
 
+if [ $# -eq 0 ]; then
+    echo "Usage: $0 <target_program.c>"
+    echo "Example: $0 filter_omp_v1.c"
+    exit 1
+fi
+
 TEST_BATCHES_DIR="test_batches"
 INPUT_IMAGES_DIR="${TEST_BATCHES_DIR}/indir"
 BUILD_DIR="build"
 BASE_SRC="filter-serial.c"
 BASE_BIN="$BUILD_DIR/serial"
-TARGET_SRC="${1:-filter_omp_v1.c}"
+TARGET_SRC="$1"
 TARGET_BIN="$BUILD_DIR/parallel"
 OUTPUT_FILE="thread_scaling_results.txt"
 
 THREAD_COUNTS=(2 4 8 16 32 64 128 256 288)
 
+if [ ! -f "$TARGET_SRC" ]; then
+    echo "❌ Error: Target source file '$TARGET_SRC' not found."
+    exit 1
+fi
+
 mkdir -p "$BUILD_DIR"
 
 echo "====================================================================" > "$OUTPUT_FILE"
 echo "Thread Scaling Test Results" >> "$OUTPUT_FILE"
+echo "Target Program: $TARGET_SRC" >> "$OUTPUT_FILE"
 echo "Generated: $(date)" >> "$OUTPUT_FILE"
 echo "====================================================================" >> "$OUTPUT_FILE"
 echo >> "$OUTPUT_FILE"
@@ -159,6 +171,7 @@ cleanup_test() {
 
 echo "====================================================================="
 echo "Running Batch Tests with Different Thread Counts"
+echo "Target Program: $TARGET_SRC"
 echo "====================================================================="
 echo "====================================================================" >> "$OUTPUT_FILE"
 echo "Running Batch Tests with Different Thread Counts" >> "$OUTPUT_FILE"
