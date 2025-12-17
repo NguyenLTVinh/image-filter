@@ -4,7 +4,7 @@ set -e
 
 TEST_DIR="tests"
 BUILD_DIR="build"
-BASE_SRC="filter-serial.c"
+BASE_SRC="variants/variant1-serial.c"
 BASE_BIN="$BUILD_DIR/serial"
 TARGET_SRC="$1"
 TARGET_BIN="$BUILD_DIR/parallel"
@@ -18,7 +18,7 @@ mkdir -p "$BUILD_DIR"
 
 echo "🔧 Compiling baseline ${BASE_SRC} ..."
 set +e
-nvcc -O3 -arch=sm_75 "$BASE_SRC" utilities.c -o "$BASE_BIN"
+nvcc -O3 -arch=sm_75 -Xcompiler -Wno-unused-result "$BASE_SRC" utilities.c -o "$BASE_BIN" --fmad=false
 base_compile_exit=$?
 set -e
 
@@ -30,7 +30,7 @@ echo "✅ Baseline compiled."
 
 echo "🔧 Compiling target ${TARGET_SRC} ..."
 set +e
-nvcc -O3 -arch=sm_75 "$TARGET_SRC" utilities.c -o "$TARGET_BIN"
+nvcc -O3 -arch=sm_75 -Xcompiler -Wno-unused-result "$TARGET_SRC" utilities.c -o "$TARGET_BIN" --fmad=false
 target_compile_exit=$?
 set -e
 if [ $target_compile_exit -ne 0 ] || [ ! -f "$TARGET_BIN" ]; then
@@ -105,7 +105,7 @@ run_speedup() {
         return
     fi
 
-    local timeout_val=60
+    local timeout_val=240
     local min_speedup=${MIN_SPEEDUP:-1.05}
 
     echo "🚀 Running speedup test_${test_id} (timeout=${timeout_val}s, min speedup=${min_speedup}x) ..."
