@@ -108,10 +108,13 @@ Tests:
 - 15–24: Generated speedup tests
 
 ### Batch Processing Tests
-First, download the zip file containing 1024 images from this url: https://drive.google.com/file/d/1HMFmKEI8oNnb4LfB3mkJcJljBHn9Ho21/view
+First, download the zip file containing 1024 images from this url: https://z.umn.edu/ayea
+
 Unzip the zip file containing 1024 200x200 generated images to test_batches/indir/
+
 Then, run test_batch.sh with the target program as argument.
 ```
+curl -L https://z.umn.edu/ayea -o 1024images.zip
 unzip 1024images.zip -d test_batches/indir/
 ./test_batch.sh <program.c>
 ```
