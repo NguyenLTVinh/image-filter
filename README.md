@@ -1,8 +1,27 @@
-This program applies convolution kernels to PPM (color) or PGM (grayscale) images.
+This program applies convolution kernels to PPM (color) or PGM (grayscale) images. It supports both single image processing and batch processing of image directories.
 
-```
+## Usage
+
+### Single Image Mode
+```bash
 ./filter-serial <input.ppm|input.pgm> <kernel.txt> <output.ppm|output.pgm>
 ```
+
+### Batch Processing Mode
+```bash
+./filter-serial <input_directory> <kernel.txt> <output_directory>
+```
+
+## Processing Modes
+
+### Single Image Mode
+Processes a single image file and outputs the result to the specified file path.
+
+### Batch Processing Mode
+- Processes all images in the input directory
+- Creates the output directory if it doesn't exist
+- Processes images in batches of 256
+- Outputs processed images to the output directory with the same filenames
 
 ## Inputs
 
@@ -10,6 +29,21 @@ This program applies convolution kernels to PPM (color) or PGM (grayscale) image
 - **PPM (P3)**: Color image (RGB, 3 channels).
 - **PGM (P2)**: Grayscale image (1 channel).
 - **Header**: Format identifier (`P3` or `P2`), followed by width, height, and max pixel value.
+
+
+## Output
+
+### Single Image Mode
+- Displays kernel application progress
+- Reports total computation time
+- Writes output to the specified file
+
+### Batch Processing Mode
+- Displays progress for each image in the batch
+- Reports:
+  - Number of successfully processed images
+  - Total computation time across all images
+- Writes all processed images to the output directory
 
 ---
 
@@ -53,6 +87,7 @@ This program applies convolution kernels to PPM (color) or PGM (grayscale) image
     - `(ky, kx)`: Position within the kernel.
 
 ## Testing
+### Single Image Tests
 
 First, download the zip file containing 1024 images from this url: https://z.umn.edu/ayea
 
