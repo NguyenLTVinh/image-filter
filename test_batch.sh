@@ -6,11 +6,11 @@ INPUT_IMAGES_DIR="${TEST_BATCHES_DIR}/indir"
 BUILD_DIR="build"
 BASE_SRC="filter-serial.c"
 BASE_BIN="$BUILD_DIR/serial"
-TARGET_SRC="${1:-filter-batch-optimized.c}"
+TARGET_SRC="${1:-filter_omp_v1.c}"
 TARGET_BIN="$BUILD_DIR/parallel"
 OUTPUT_FILE="thread_scaling_results.txt"
 
-THREAD_COUNTS=(2 4 8 16 32 64 128 256)
+THREAD_COUNTS=(2 4 8 16 32 64 128 256 288)
 
 mkdir -p "$BUILD_DIR"
 
@@ -121,16 +121,22 @@ run_batch_test() {
     fi
 
     local speedup
-    speedup=$(awk -v b="$time_serial" -v t="$time_target" 'BEGIN {if(t==0){print 0}else{print b/t}}')
+    speedup=$(awk -v b="$time_serial" -v t="$time_target" 'BEGIN {if(t==0){print "0.000"}else{printf "%.3f", b/t}}')
     
-    echo "   Baseline time: ${time_serial}s"
-    echo "   Target time:   ${time_target}s"
+    local time_serial_fmt
+    time_serial_fmt=$(printf "%.3f" "$time_serial")
+    
+    local time_target_fmt
+    time_target_fmt=$(printf "%.3f" "$time_target")
+    
+    echo "   Baseline time: ${time_serial_fmt}s"
+    echo "   Target time:   ${time_target_fmt}s"
     echo "   Speedup:       ${speedup}x"
     echo
     
     echo "   Threads: $num_threads" >> "$OUTPUT_FILE"
-    echo "   Baseline time: ${time_serial}s" >> "$OUTPUT_FILE"
-    echo "   Target time:   ${time_target}s" >> "$OUTPUT_FILE"
+    echo "   Baseline time: ${time_serial_fmt}s" >> "$OUTPUT_FILE"
+    echo "   Target time:   ${time_target_fmt}s" >> "$OUTPUT_FILE"
     echo "   Speedup:       ${speedup}x" >> "$OUTPUT_FILE"
     echo >> "$OUTPUT_FILE"
     

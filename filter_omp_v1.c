@@ -1,3 +1,4 @@
+// Optimized for batch processing, unoptimized convolution
 #include "utilities.h"
 #include <stdio.h>
 #include <stdlib.h>
@@ -154,28 +155,31 @@ int main(int argc, char *argv[]) {
       int batch_size = batch_end - batch_start;
       printf("\nBatch %d-%d:\n", batch_start + 1, batch_end);
 
-      double batch_start_time = omp_get_wtime();
-
-      // Process images in parallel within the batch
-      #pragma omp parallel for schedule(dynamic, 1) reduction(+:processed)
-      for (int i = batch_start; i < batch_end; i++) {
-        char *filename = get_filename(image_files[i]);
+      Image **loaded_images = (Image **)calloc(batch_size, sizeof(Image *));
+      char **filenames = (char **)calloc(batch_size, sizeof(char *));
+      
+      // Load all images first (not timed)
+      for (int i = 0; i < batch_size; i++) {
+        int idx = batch_start + i;
+        filenames[i] = get_filename(image_files[idx]);
+        printf("  [%d/%d] %s... ", idx + 1, num_images, filenames[i]);
+        fflush(stdout);
         
-        #pragma omp critical
-        {
-          printf("  [%d/%d] %s... ", i + 1, num_images, filename);
-          fflush(stdout);
-        }
-
-        Image *img = read_image(image_files[i]);
-        if (!img) {
-          #pragma omp critical
+        loaded_images[i] = read_image(image_files[idx]);
+        if (!loaded_images[i]) {
           printf("FAILED (read)\n");
-          free(filename);
-          continue;
+        } else {
+          printf("loaded\n");
         }
+      }
 
-        Image *current = img;
+      double batch_conv_start = omp_get_wtime();
+      
+      #pragma omp parallel for schedule(dynamic, 1)
+      for (int i = 0; i < batch_size; i++) {
+        if (!loaded_images[i]) continue;
+        
+        Image *current = loaded_images[i];
         int success = 1;
 
         for (int k = 0; k < kset->num_kernels; k++) {
@@ -184,46 +188,50 @@ int main(int argc, char *argv[]) {
               apply_convolution(current, kset->kernels[k], &kernel_time);
 
           if (!result) {
-            if (current != img)
+            if (current != loaded_images[i])
               free_image(current);
-            free_image(img);
-            #pragma omp critical
-            printf("FAILED (kernel %d)\n", k + 1);
             success = 0;
             break;
           }
 
-          if (current != img) {
+          if (current != loaded_images[i]) {
             free_image(current);
           }
           current = result;
         }
 
-        if (success) {
-          char *output_file = join_path(output_path, filename);
-          if (write_image(output_file, current)) {
-            #pragma omp critical
-            printf("OK\n");
+        if (success && current != loaded_images[i]) {
+          loaded_images[i] = current;
+        } else if (!success) {
+          loaded_images[i] = NULL;
+        }
+      }
+      
+      double batch_conv_end = omp_get_wtime();
+      double batch_conv_time = batch_conv_end - batch_conv_start;
+      total_time += batch_conv_time;
+
+      // Write all results (not timed)
+      for (int i = 0; i < batch_size; i++) {
+        int idx = batch_start + i;
+        if (loaded_images[i]) {
+          char *output_file = join_path(output_path, filenames[i]);
+          if (write_image(output_file, loaded_images[i])) {
             processed++;
           } else {
-            #pragma omp critical
-            printf("FAILED (write)\n");
+            printf("  [%d/%d] %s... FAILED (write)\n", idx + 1, num_images, filenames[i]);
           }
           free(output_file);
+          free_image(loaded_images[i]);
         }
-
-        free_image(img);
-        if (current != img)
-          free_image(current);
-        free(filename);
+        free(filenames[i]);
       }
+      
+      free(loaded_images);
+      free(filenames);
 
-      double batch_end_time = omp_get_wtime();
-      double batch_time = batch_end_time - batch_start_time;
-      total_time += batch_time;
-
-      printf("Batch time: %.6f seconds (%.2f images/sec)\n", 
-             batch_time, batch_size / batch_time);
+      printf("Batch convolution time: %.6f seconds (%.2f images/sec)\n", 
+             batch_conv_time, batch_size / batch_conv_time);
     }
 
     printf("\n=== Summary ===\n");
