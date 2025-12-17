@@ -54,6 +54,15 @@ This program applies convolution kernels to PPM (color) or PGM (grayscale) image
 
 ## Testing
 
+First, download the zip file containing 1024 images from this url: https://z.umn.edu/ayea
+
+Unzip the zip file containing 1024 200x200 generated images to tests/test_25/images/
+
+```
+curl -L https://z.umn.edu/ayea -o 1024images.zip
+unzip 1024images.zip -d tests/test_25/images/
+```
+
 The program can be tested for correctness and speedups by running:
 
 ```
@@ -71,3 +80,4 @@ Tests:
 - 5: YUV
 - 6–14: Generated correctness tests
 - 15–24: Generated speedup tests
+- 25: Batched speedup test - only for variant5-batch.cu

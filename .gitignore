@@ -1,6 +1,5 @@
 *.o
-goldy-blur-output.ppm
-filter
 build/
-test_batches/indir/*.ppm
 venv
+1024images.zip
+tests/test_25/images/
