@@ -28,7 +28,7 @@ mkdir -p "$BUILD_DIR"
 
 echo "🔧 Compiling baseline ${BASE_SRC} ..."
 set +e
-nvcc -O3 -arch=sm_75 -Xcompiler -Wno-unused-result "$BASE_SRC" utilities.c -o "$BASE_BIN" --fmad=false
+nvcc -O3 -arch=sm_75 -Xcompiler "-Wno-unused-result -fopenmp" "$BASE_SRC" utilities.c -o "$BASE_BIN" --fmad=false
 base_compile_exit=$?
 set -e
 
@@ -40,7 +40,7 @@ echo "✅ Baseline compiled."
 
 echo "🔧 Compiling target ${TARGET_SRC} ..."
 set +e
-nvcc -O3 -arch=sm_75 -Xcompiler -Wno-unused-result "$TARGET_SRC" utilities.c -o "$TARGET_BIN" --fmad=false
+nvcc -O3 -arch=sm_75 -Xcompiler "-Wno-unused-result -fopenmp" "$TARGET_SRC" utilities.c -o "$TARGET_BIN" --fmad=false
 target_compile_exit=$?
 set -e
 if [ $target_compile_exit -ne 0 ] || [ ! -f "$TARGET_BIN" ]; then

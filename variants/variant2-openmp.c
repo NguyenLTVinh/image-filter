@@ -1,5 +1,5 @@
 // Optimized batch processing and high-performance convolution
-#include "utilities.h"
+#include "../utilities.h"
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
